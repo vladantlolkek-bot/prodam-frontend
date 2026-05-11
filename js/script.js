@@ -1,4 +1,4 @@
-const API_URL = 'http://t4xfeafp9.loclx.io/api';
+const API_URL = 'https://t4xfeeafp9.loclx.io/api';
 
 // ===== РАБОТА С ПОЛЬЗОВАТЕЛЯМИ =====
 
