@@ -1,4 +1,4 @@
-const API_URL = 'https://duplex-electable-yogurt.ngrok-free.dev/api';
+const API_URL = 'http://t4xfeafp9.loclx.io/api';
 
 // ===== РАБОТА С ПОЛЬЗОВАТЕЛЯМИ =====
 
