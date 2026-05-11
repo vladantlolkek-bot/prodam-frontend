@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRODAM — Вход</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo" onclick="location.href='index.html'">
+                <span class="logo-icon">🚗</span>
+                <h1>PRODAM</h1>
+            </div>
+            <div class="user-menu" id="userMenu"></div>
+        </header>
+
+        <div class="auth-container">
+            <div class="auth-card">
+                <h2 class="auth-title">Вход</h2>
+                <p class="auth-subtitle">Войдите в свой аккаунт</p>
+                <div id="errorMessage" class="error-message"></div>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Пароль</label>
+                        <input type="password" id="password" required>
+                    </div>
+                    <button type="submit" class="btn">Войти</button>
+                </form>
+                <div class="auth-footer">
+                    Нет аккаунта? <a href="register.html">Зарегистрироваться</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/script.js"></script>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('errorMessage');
+            
+            errorDiv.style.display = 'none';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    localStorage.setItem('prodam_token', data.token);
+                    localStorage.setItem('prodam_current_user', JSON.stringify({
+                        id: data.user.id,
+                        name: data.user.name,
+                        email: data.user.email
+                    }));
+                    window.location.href = 'cabinet.html';
+                } else {
+                    errorDiv.textContent = data.error || 'Ошибка входа';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (err) {
+                errorDiv.textContent = 'Ошибка подключения к серверу';
+                errorDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
