@@ -21,7 +21,6 @@
         .info-card { background: #f8fafd; padding: 15px; border-radius: 15px; text-align: center; }
         .info-card label { font-size: 14px; color: #718096; display: block; margin-bottom: 5px; }
         .info-card .info-value { font-size: 24px; font-weight: 700; color: #1a2639; }
-        
         .profile-edit-form { background: white; border-radius: 20px; padding: 30px; margin-bottom: 30px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); display: none; }
         .profile-edit-form.show { display: block; animation: fadeIn 0.3s ease; }
         .profile-edit-form h3 { margin-bottom: 20px; color: #1a2639; }
@@ -34,7 +33,6 @@
         .btn-edit { background: #2b3a67; color: white; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer; }
         .btn-cancel { background: #e2e8f0; color: #4a5568; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer; }
         .edit-profile-btn { background: transparent; border: 1px solid #2b3a67; color: #2b3a67; padding: 8px 16px; border-radius: 10px; cursor: pointer; margin-left: auto; }
-        
         .cars-section { background: white; border-radius: 20px; padding: 30px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
         .cars-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; }
         .add-car-btn { background: linear-gradient(135deg, #2b3a67, #3a4f8c); color: white; border: none; padding: 12px 24px; border-radius: 50px; cursor: pointer; font-weight: 600; transition: 0.3s; }
@@ -63,12 +61,18 @@
         .empty-state { text-align: center; padding: 60px 20px; color: #718096; }
         .empty-state button { background: linear-gradient(135deg, #2b3a67, #3a4f8c); color: white; border: none; padding: 10px 20px; border-radius: 50px; cursor: pointer; }
         .avatar-input { display: none; }
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; display: none; }
+        .loading-spinner { background: white; padding: 20px 40px; border-radius: 15px; font-size: 18px; font-weight: 600; color: #2b3a67; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         @media (max-width: 768px) { .profile-info-grid { grid-template-columns: 1fr; } .profile-header { flex-direction: column; text-align: center; } .form-row { grid-template-columns: 1fr; } .edit-form-row { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-spinner">⏳ Подключение к серверу...</div>
+        </div>
+
         <header class="header">
             <div class="logo" onclick="location.href='index.html'">
                 <span class="logo-icon">🚗</span>
@@ -83,7 +87,6 @@
         </header>
 
         <div class="cabinet-container">
-            <!-- Профиль пользователя -->
             <div class="profile-section">
                 <div class="profile-header">
                     <div class="profile-avatar-container" onclick="document.getElementById('avatarInput').click()">
@@ -104,7 +107,6 @@
                 </div>
             </div>
 
-            <!-- Форма редактирования профиля -->
             <div class="profile-edit-form" id="editProfileForm">
                 <h3>Редактирование профиля</h3>
                 <div class="edit-form-row">
@@ -123,7 +125,6 @@
                 </div>
             </div>
 
-            <!-- Секция с автомобилями -->
             <div class="cars-section">
                 <div class="cars-header">
                     <h3>🚗 Мои автомобили</h3>
@@ -169,12 +170,39 @@
     </div>
 
     <script>
-        const API_URL = 'http://localhost:5000/api';
+        const API_URL = 'https://u2x1d4kzku.loclx.io/api';
+        
+        function showLoading() {
+            document.getElementById('loadingOverlay').style.display = 'flex';
+        }
+        
+        function hideLoading() {
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
         
         function getToken() { return localStorage.getItem('prodam_token'); }
         function getCurrentUser() { const user = localStorage.getItem('prodam_current_user'); return user ? JSON.parse(user) : null; }
         
-        // ===== ЗАГРУЗКА ДАННЫХ ПОЛЬЗОВАТЕЛЯ =====
+        async function fetchWithTimeout(url, options = {}, timeout = 15000) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+            
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                return response;
+            } catch (err) {
+                clearTimeout(timeoutId);
+                if (err.name === 'AbortError') {
+                    throw new Error('Сервер отвечает слишком долго. Попробуйте ещё раз.');
+                }
+                throw err;
+            }
+        }
+        
         async function loadUserData() {
             const currentUser = getCurrentUser();
             if (!currentUser) { window.location.href = 'login.html'; return; }
@@ -185,9 +213,10 @@
             const token = getToken();
             if (token) {
                 try {
-                    const response = await fetch(`${API_URL}/me`, {
+                    const response = await fetchWithTimeout(`${API_URL}/me`, {
                         headers: { 'Authorization': `Bearer ${token}` }
-                    });
+                    }, 15000);
+                    
                     if (response.ok) {
                         const userData = await response.json();
                         document.getElementById('userPhone').textContent = userData.phone || '—';
@@ -211,15 +240,15 @@
             }
         }
         
-        // ===== ЗАГРУЗКА МАШИН =====
         async function loadUserCars() {
             const token = getToken();
             if (!token) return;
             
             try {
-                const response = await fetch(`${API_URL}/my-cars`, {
+                const response = await fetchWithTimeout(`${API_URL}/my-cars`, {
                     headers: { 'Authorization': `Bearer ${token}` }
-                });
+                }, 15000);
+                
                 if (response.status === 401) { logout(); return; }
                 if (response.ok) {
                     const cars = await response.json();
@@ -263,7 +292,6 @@
         
         function escapeHtml(text) { if (!text) return ''; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
         
-        // ===== РЕДАКТИРОВАНИЕ ПРОФИЛЯ =====
         function toggleEditForm() {
             document.getElementById('editProfileForm').classList.toggle('show');
         }
@@ -273,15 +301,16 @@
             const phone = document.getElementById('editPhone').value;
             const token = getToken();
             
+            showLoading();
             try {
-                const response = await fetch(`${API_URL}/profile`, {
+                const response = await fetchWithTimeout(`${API_URL}/profile`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({ name, phone })
-                });
+                }, 15000);
                 
                 if (response.ok) {
                     const data = await response.json();
@@ -289,17 +318,18 @@
                     currentUser.name = data.user.name;
                     localStorage.setItem('prodam_current_user', JSON.stringify(currentUser));
                     toggleEditForm();
-                    loadUserData();
+                    await loadUserData();
                     alert('Профиль успешно обновлён!');
                 } else {
                     alert('Ошибка при сохранении');
                 }
             } catch (err) {
-                alert('Ошибка подключения к серверу');
+                alert('Ошибка подключения к серверу: ' + err.message);
+            } finally {
+                hideLoading();
             }
         }
         
-        // ===== ЗАГРУЗКА АВАТАРА =====
         async function uploadAvatar(input) {
             if (input.files && input.files[0]) {
                 const file = input.files[0];
@@ -308,15 +338,16 @@
                     const avatarBase64 = e.target.result;
                     const token = getToken();
                     
+                    showLoading();
                     try {
-                        const response = await fetch(`${API_URL}/avatar`, {
+                        const response = await fetchWithTimeout(`${API_URL}/avatar`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
                                 'Authorization': `Bearer ${token}`
                             },
                             body: JSON.stringify({ avatar: avatarBase64 })
-                        });
+                        }, 15000);
                         
                         if (response.ok) {
                             document.getElementById('userAvatar').style.backgroundImage = `url(${avatarBase64})`;
@@ -328,14 +359,15 @@
                             alert('Ошибка загрузки аватара');
                         }
                     } catch (err) {
-                        alert('Ошибка подключения к серверу');
+                        alert('Ошибка подключения к серверу: ' + err.message);
+                    } finally {
+                        hideLoading();
                     }
                 };
                 reader.readAsDataURL(file);
             }
         }
         
-        // ===== ДОБАВЛЕНИЕ МАШИНЫ =====
         async function addCar() {
             const brand = document.getElementById('carBrand').value.trim();
             const model = document.getElementById('carModel').value.trim();
@@ -353,8 +385,9 @@
             const token = getToken();
             if (!token) { alert('Ошибка: вы не авторизованы'); return; }
             
+            showLoading();
             try {
-                const response = await fetch(`${API_URL}/cars`, {
+                const response = await fetchWithTimeout(`${API_URL}/cars`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -367,7 +400,7 @@
                         price: parseInt(price),
                         status, description
                     })
-                });
+                }, 15000);
                 
                 if (response.ok) {
                     alert('Автомобиль успешно добавлен!');
@@ -384,23 +417,34 @@
                     alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
                 }
             } catch (err) {
-                alert('Ошибка подключения к серверу');
+                alert('Ошибка подключения к серверу: ' + err.message);
+            } finally {
+                hideLoading();
             }
         }
         
         async function deleteCar(carId) {
             if (!confirm('Удалить этот автомобиль?')) return;
             const token = getToken();
+            
+            showLoading();
             try {
-                const response = await fetch(`${API_URL}/cars/${carId}`, {
+                const response = await fetchWithTimeout(`${API_URL}/cars/${carId}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
-                });
+                }, 15000);
+                
                 if (response.ok) {
                     alert('Автомобиль удалён');
                     await loadUserCars();
-                } else { alert('Ошибка при удалении'); }
-            } catch (err) { alert('Ошибка подключения к серверу'); }
+                } else { 
+                    alert('Ошибка при удалении'); 
+                }
+            } catch (err) { 
+                alert('Ошибка подключения к серверу: ' + err.message);
+            } finally {
+                hideLoading();
+            }
         }
         
         function toggleAddCarForm() {
