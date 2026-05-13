@@ -1,4 +1,4 @@
-const API_URL = 'https://u2x1d4kzku.loclx.io/api';
+const API_URL = 'https://ygxgkww6rl.loclx.io/api';
 
 // ===== УНИВЕРСАЛЬНАЯ ФУНКЦИЯ ДЛЯ ЗАПРОСОВ С ТАЙМ-АУТОМ =====
 async function fetchWithTimeout(url, options = {}, timeout = 15000) {
