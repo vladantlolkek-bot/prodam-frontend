@@ -1,4 +1,4 @@
-const API_URL = 'https://0636196c42cdcc.lhr.life/api';
+const API_URL = 'https://609d51a0e629ce.lhr.life/api';
 
 // ===== УНИВЕРСАЛЬНАЯ ФУНКЦИЯ ДЛЯ ЗАПРОСОВ С ТАЙМ-АУТОМ =====
 async function fetchWithTimeout(url, options = {}, timeout = 15000) {
